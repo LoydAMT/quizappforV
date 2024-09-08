@@ -174,7 +174,7 @@ const QuizGenerator = () => {
 
   return (
     <div className="quiz-generator">
-      <h1>Quiz Generator with Answer Checking</h1>
+      <h1>Goodluck!</h1>
       {!showQuiz ? (
         <div className="quiz-input">
           <div className="input-section">
