@@ -11,6 +11,7 @@ const QuizGenerator = () => {
   const [itemScores, setItemScores] = useState([]);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+  const [showFormatInstructions, setShowFormatInstructions] = useState(false);
 
   const parseQuiz = (text, answers) => {
     const sections = text.split(/\n(?=(?:Enumeration|Identification|Multiple Choice))/);
@@ -47,7 +48,47 @@ const QuizGenerator = () => {
 
     return questions;
   };
-
+  const formatInstructions = `
+  How to Format Questions and Answers:
+  
+  1. Enumeration:
+     - Start with "Enumeration" on a new line
+     - Each question on a new line, numbered
+     - Answers: Comma-separated list
+  
+     Example:
+     Enumeration
+     1. List three primary colors.
+     Answer: Red, Blue, Yellow
+  
+  2. Identification:
+     - Start with "Identification" on a new line
+     - Each question on a new line, numbered
+     - Answers: Single word or short phrase
+  
+     Example:
+     Identification
+     2. What is the capital of France?
+     Answer: Paris
+  
+  3. Multiple Choice:
+     - Start with "Multiple Choice" on a new line
+     - Each question on a new line, numbered
+     - Options on separate lines, labeled A) B) C) D)
+     - Answers: Single letter (A, B, C, or D)
+  
+     Example:
+     Multiple Choice
+     3. Which planet is known as the Red Planet?
+     A) Venus
+     B) Mars
+     C) Jupiter
+     D) Saturn
+     Answer: B
+  
+  Note: Ensure each question is on a new line and numbered sequentially across all question types.
+    `;
+    
   const handleGenerateQuiz = () => {
     const parsedQuiz = parseQuiz(quizText, answerText);
     setQuiz(parsedQuiz);
@@ -174,7 +215,7 @@ const QuizGenerator = () => {
 
   return (
     <div className="quiz-generator">
-      <h1>Goodluck!</h1>
+      <h1>Quiz Generator with Answer Checking</h1>
       {!showQuiz ? (
         <div className="quiz-input">
           <div className="input-section">
@@ -195,6 +236,14 @@ const QuizGenerator = () => {
               className="text-input"
             />
           </div>
+          <button onClick={() => setShowFormatInstructions(!showFormatInstructions)} className="format-btn">
+            {showFormatInstructions ? 'Hide Format Instructions' : 'Show Format Instructions'}
+          </button>
+          {showFormatInstructions && (
+            <div className="format-instructions">
+              <pre>{formatInstructions}</pre>
+            </div>
+          )}
           <button onClick={handleGenerateQuiz} className="generate-btn">
             Generate Quiz
           </button>
