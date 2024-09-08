@@ -1,143 +1,184 @@
+/* App.css */
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f0f2f5;
+  margin: 0;
+  padding: 0;
+}
+
 .quiz-generator {
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
-  font-family: Arial, sans-serif;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
-h1, h2, h3, h4 {
+h1, h2, h3 {
+  text-align: center;
   color: #333;
 }
 
-.quiz-input {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.input-section {
-  display: flex;
-  flex-direction: column;
-}
-
-.text-input {
+input[type="text"],
+textarea {
   width: 100%;
-  height: 150px;
   padding: 10px;
+  margin: 10px 0;
   border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
+  border-radius: 5px;
 }
 
-.generate-btn, .submit-btn, .retake-btn, .compare-btn, .new-quiz-btn {
-  padding: 10px 20px;
+textarea {
+  height: 100px;
+  resize: none;
+}
+
+button {
   background-color: #4CAF50;
   color: white;
+  padding: 10px 20px;
+  margin: 10px 0;
   border: none;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
   font-size: 16px;
-  margin-top: 10px;
 }
 
-.generate-btn:hover, .submit-btn:hover, .retake-btn:hover, .compare-btn:hover, .new-quiz-btn:hover {
+button:hover {
   background-color: #45a049;
 }
 
-.quiz-display {
-  margin-top: 20px;
+.sign-out-btn {
+  background-color: #d9534f;
+}
+
+.nav-btn, .save-btn, .generate-btn {
+  margin: 10px 5px;
+}
+
+.public-checkbox {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.quiz-list {
+  list-style: none;
+  padding: 0;
+}
+
+.quiz-item {
+  display: flex;
+  justify-content: space-between;
+  background-color: #f9f9f9;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 5px;
+  border: 1px solid #ddd;
+}
+
+.quiz-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .question {
-  margin-bottom: 20px;
-  padding: 15px;
+  background-color: #f9f9f9;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 5px;
   border: 1px solid #ddd;
-  border-radius: 4px;
 }
 
 .question.correct {
-  background-color: #e6ffe6;
+  background-color: #d4edda;
 }
 
 .question.incorrect {
-  background-color: #ffe6e6;
-}
-
-.question-text {
-  font-weight: bold;
-  margin-bottom: 10px;
-}
-
-.option {
-  margin-bottom: 5px;
+  background-color: #f8d7da;
 }
 
 .answer-input {
-  width: 100%;
-  padding: 5px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-.result {
-  margin-top: 20px;
-  padding: 15px;
-  background-color: #f0f0f0;
-  border-radius: 4px;
-}
-
-.button-group {
-  display: flex;
-  gap: 10px;
   margin-top: 10px;
+  padding: 8px;
+  width: 100%;
+  border-radius: 5px;
+  border: 1px solid #ccc;
 }
 
 .comparison {
   margin-top: 10px;
+  background-color: #e9ecef;
   padding: 10px;
+  border-radius: 5px;
+}
+
+.quiz-actions {
+  display: flex;
+  justify-content: space-between;
+}
+
+.result {
+  background-color: #f8f9fa;
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 5px;
+  text-align: center;
+}
+
+.score-breakdown {
+  list-style: none;
+  padding: 0;
+}
+
+.score-breakdown li {
+  padding: 5px 0;
+}
+
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+button.new-quiz-btn {
+  margin-top: 20px;
+  width: 100%;
+}
+
+.instructions {
   background-color: #f9f9f9;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid #ccc;
+  padding: 15px;
+  margin-top: 10px;
 }
 
-/* Responsive design for mobile devices */
-@media screen and (max-width: 600px) {
-  .quiz-generator {
-    padding: 10px;
-  }
-
-  h1 {
-    font-size: 24px;
-  }
-
-  h2 {
-    font-size: 20px;
-  }
-
-  .text-input {
-    height: 100px;
-  }
-
-  .generate-btn, .submit-btn, .retake-btn, .compare-btn, .new-quiz-btn {
-    width: 100%;
-    padding: 12px;
-    font-size: 14px;
-  }
-
-  .button-group {
-    flex-direction: column;
-    gap: 5px;
-  }
-
-  .question {
-    padding: 10px;
-  }
-
-  .option {
-    margin-bottom: 8px;
-  }
-
-  .result {
-    padding: 10px;
-  }
+.instructions pre {
+  background-color: #eee;
+  padding: 10px;
+  border-radius: 5px;
 }
+
+.instructions-btn {
+  margin-top: 15px;
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.instructions-btn:hover {
+  background-color: #0056b3;
+}
+
+.text-input {
+  width: 100%;  
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+

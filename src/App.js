@@ -1,7 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { getFirestore, collection, addDoc, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import './App.css';
 
+const firebaseConfig = {
+  apiKey: "AIzaSyCOKko7WWVIyQDLlgvzLbvOfj5vm-KSLkY",
+  authDomain: "quizcardsmaker.firebaseapp.com",
+  projectId: "quizcardsmaker",
+  storageBucket: "quizcardsmaker.appspot.com",
+  messagingSenderId: "726216791363",
+  appId: "1:726216791363:web:c7235bda2585105c788bf6",
+  measurementId: "G-XFWZVBX4CW"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
 const QuizGenerator = () => {
+  const [user, setUser] = useState(null);
   const [quizText, setQuizText] = useState('');
   const [answerText, setAnswerText] = useState('');
   const [quiz, setQuiz] = useState([]);
@@ -11,84 +29,104 @@ const QuizGenerator = () => {
   const [itemScores, setItemScores] = useState([]);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
-  const [showFormatInstructions, setShowFormatInstructions] = useState(false);
+  const [userQuizzes, setUserQuizzes] = useState([]);
+  const [publicQuizzes, setPublicQuizzes] = useState([]);
+  const [isPublic, setIsPublic] = useState(false);
+  const [quizTitle, setQuizTitle] = useState('');
+  const [showInstructions, setShowInstructions] = useState(false);
 
-  const parseQuiz = (text, answers) => {
-    const sections = text.split(/\n(?=(?:Enumeration|Identification|Multiple Choice))/);
-    const answerLines = answers.split('\n');
-    const questions = [];
-    let answerIndex = 0;
+  const userQuizzesRef = useRef(null);
+  const publicQuizzesRef = useRef(null);
 
-    sections.forEach((section) => {
-      const lines = section.trim().split('\n');
-      const sectionType = lines[0].trim();
-      lines.slice(1).forEach((line) => {
-        if (line.trim()) {
-          if (sectionType === 'Enumeration' || sectionType === 'Identification') {
-            questions.push({
-              type: sectionType.toLowerCase(),
-              question: line.substring(line.indexOf('.') + 1).trim(),
-              answer: answerLines[answerIndex++]?.trim() || '',
-            });
-          } else if (sectionType === 'Multiple Choice') {
-            if (line.match(/^\d+\./)) {
-              questions.push({
-                type: 'multiple-choice',
-                question: line.substring(line.indexOf('.') + 1).trim(),
-                options: [],
-                answer: answerLines[answerIndex++]?.trim() || '',
-              });
-            } else if (line.trim().match(/^[A-D]\)/)) {
-              questions[questions.length - 1].options.push(line.trim());
-            }
-          }
-        }
-      });
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+      if (user) {
+        fetchUserQuizzes(user.uid);
+        fetchPublicQuizzes();
+      }
     });
+    return () => unsubscribe();
+  }, []);
 
-    return questions;
+  const signIn = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Error signing in with Google", error);
+    }
   };
-  const formatInstructions = `
-  How to Format Questions and Answers:
-  
-  1. Enumeration:
-     - Start with "Enumeration" on a new line
-     - Each question on a new line, numbered
-     - Answers: Comma-separated list
-  
-     Example:
-     Enumeration
-     1. List three primary colors.
-     Answer: Red, Blue, Yellow
-  
-  2. Identification:
-     - Start with "Identification" on a new line
-     - Each question on a new line, numbered
-     - Answers: Single word or short phrase
-  
-     Example:
-     Identification
-     2. What is the capital of France?
-     Answer: Paris
-  
-  3. Multiple Choice:
-     - Start with "Multiple Choice" on a new line
-     - Each question on a new line, numbered
-     - Options on separate lines, labeled A) B) C) D)
-     - Answers: Single letter (A, B, C, or D)
-  
-     Example:
-     Multiple Choice
-     3. Which planet is known as the Red Planet?
-     A) Venus
-     B) Mars
-     C) Jupiter
-     D) Saturn
-     Answer: B
-  
-  Note: Ensure each question is on a new line and numbered sequentially across all question types.
-    `;
+
+  const signOutUser = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error signing out", error);
+    }
+  };
+
+  const fetchUserQuizzes = async (userId) => {
+    const q = query(collection(db, "quizzes"), where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+    setUserQuizzes(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  };
+
+  const fetchPublicQuizzes = async () => {
+    const q = query(collection(db, "quizzes"), where("isPublic", "==", true));
+    const querySnapshot = await getDocs(q);
+    setPublicQuizzes(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  };
+
+  const saveQuiz = async () => {
+    if (!user) return;
     
+    const title = prompt("Please enter a title for your quiz:", quizTitle);
+    if (title === null) return; // User cancelled the prompt
+    
+    setQuizTitle(title);
+    
+    try {
+      const docRef = await addDoc(collection(db, "quizzes"), {
+        userId: user.uid,
+        title,
+        quizText,
+        answerText,
+        isPublic,
+        createdAt: new Date()
+      });
+      console.log("Quiz saved with ID: ", docRef.id);
+      fetchUserQuizzes(user.uid);
+      if (isPublic) fetchPublicQuizzes();
+    } catch (error) {
+      console.error("Error saving quiz: ", error);
+    }
+  };
+
+  const loadQuiz = (quiz) => {
+    setQuizTitle(quiz.title);
+    setQuizText(quiz.quizText);
+    setAnswerText(quiz.answerText);
+    setIsPublic(quiz.isPublic);
+  };
+
+  const toggleInstructions = () => {
+    setShowInstructions(!showInstructions);
+  };
+
+
+  const togglePublic = async (quizId, currentState) => {
+    try {
+      await updateDoc(doc(db, "quizzes", quizId), {
+        isPublic: !currentState
+      });
+      fetchUserQuizzes(user.uid);
+      fetchPublicQuizzes();
+    } catch (error) {
+      console.error("Error updating quiz visibility: ", error);
+    }
+  };
+
   const handleGenerateQuiz = () => {
     const parsedQuiz = parseQuiz(quizText, answerText);
     setQuiz(parsedQuiz);
@@ -213,67 +251,194 @@ const QuizGenerator = () => {
     );
   };
 
+  const parseQuiz = (text, answers) => {
+    const sections = text.split(/\n(?=(?:Enumeration|Identification|Multiple Choice))/);
+    const answerLines = answers.split('\n');
+    const questions = [];
+    let answerIndex = 0;
+
+    sections.forEach((section) => {
+      const lines = section.trim().split('\n');
+      const sectionType = lines[0].trim();
+      lines.slice(1).forEach((line) => {
+        if (line.trim()) {
+          if (sectionType === 'Enumeration' || sectionType === 'Identification') {
+            questions.push({
+              type: sectionType.toLowerCase(),
+              question: line.substring(line.indexOf('.') + 1).trim(),
+              answer: answerLines[answerIndex++]?.trim() || '',
+            });
+          } else if (sectionType === 'Multiple Choice') {
+            if (line.match(/^\d+\./)) {
+              questions.push({
+                type: 'multiple-choice',
+                question: line.substring(line.indexOf('.') + 1).trim(),
+                options: [],
+                answer: answerLines[answerIndex++]?.trim() || '',
+              });
+            } else if (line.trim().match(/^[A-D]\)/)) {
+              questions[questions.length - 1].options.push(line.trim());
+            }
+          }
+        }
+      });
+    });
+
+    return questions;
+  };
+
+  const scrollToSection = (ref) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const instructionsText = `
+    How to format your questions:
+
+    1. Enumeration:
+       Write "Enumeration" at the beginning of the section.
+       Each question should be on a new line, starting with a number.
+       Example:
+       Enumeration
+       1. List three primary colors.
+
+    2. Identification:
+       Write "Identification" at the beginning of the section.
+       Each question should be on a new line, starting with a number.
+       Example:
+       Identification
+       1. What is the capital of France?
+
+    3. Multiple Choice:
+       Write "Multiple Choice" at the beginning of the section.
+       Each question should be on a new line, starting with a number.
+       Options should be on separate lines, starting with A), B), C), or D).
+       Example:
+       Multiple Choice
+       1. Which planet is known as the Red Planet?
+       A) Venus
+       B) Mars
+       C) Jupiter
+       D) Saturn
+
+    Answers:
+    Write answers in the order of questions, one per line.
+    For enumeration, separate items with commas.
+    For multiple choice, just write the correct letter.
+  `;
+
+
   return (
     <div className="quiz-generator">
-      <h1>Quiz Generator with Answer Checking</h1>
-      {!showQuiz ? (
-        <div className="quiz-input">
-          <div className="input-section">
-            <h2>Questions</h2>
-            <textarea
-              value={quizText}
-              onChange={(e) => setQuizText(e.target.value)}
-              placeholder="Enter your quiz questions here..."
-              className="text-input"
-            />
+      <h1>GOODLUCK V</h1>
+      {user ? (
+        <>
+          <div className="user-info">
+            <p>Welcome, {user.displayName}!</p>
+            <button onClick={signOutUser} className="sign-out-btn">Sign Out</button>
           </div>
-          <div className="input-section">
-            <h2>Answers</h2>
-            <textarea
-              value={answerText}
-              onChange={(e) => setAnswerText(e.target.value)}
-              placeholder="Enter your answers here, one per line..."
-              className="text-input"
-            />
+          <div className="navigation-buttons">
+            <button onClick={() => scrollToSection(userQuizzesRef)} className="nav-btn">My Quizzes</button>
+            <button onClick={() => scrollToSection(publicQuizzesRef)} className="nav-btn">Public Quizzes</button>
           </div>
-          <button onClick={() => setShowFormatInstructions(!showFormatInstructions)} className="format-btn">
-            {showFormatInstructions ? 'Hide Format Instructions' : 'Show Format Instructions'}
-          </button>
-          {showFormatInstructions && (
-            <div className="format-instructions">
-              <pre>{formatInstructions}</pre>
+            {!showQuiz ? (
+            <div className="quiz-input">
+              <button onClick={toggleInstructions} className="instructions-btn">
+                {showInstructions ? 'Hide Instructions' : 'Show Instructions'}
+              </button>
+              {showInstructions && (
+                <div className="instructions">
+                  <pre>{instructionsText}</pre>
+                </div>
+              )}
+              <div className="input-section">
+                <h2>Questions</h2>
+                <textarea
+                  value={quizText}
+                  onChange={(e) => setQuizText(e.target.value)}
+                  placeholder="Enter your quiz questions here..."
+                  className="text-input"
+                />
+              </div>
+              <div className="input-section">
+                <h2>Answers</h2>
+                <textarea
+                  value={answerText}
+                  onChange={(e) => setAnswerText(e.target.value)}
+                  placeholder="Enter your answers here, one per line..."
+                  className="text-input"
+                />
+              </div>
+              <div className="quiz-options">
+                <label className="public-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                  />
+                  Make this quiz public
+                </label>
+                <button onClick={saveQuiz} className="save-btn">Save Quiz</button>
+                <button onClick={handleGenerateQuiz} className="generate-btn">Generate Quiz</button>
+              </div>
+              <div ref={userQuizzesRef}>
+                <h3>Your Quizzes</h3>
+                <ul className="quiz-list">
+                  {userQuizzes.map((quiz) => (
+                    <li key={quiz.id} className="quiz-item">
+                      <span>{quiz.title || 'Untitled Quiz'}</span>
+                      <div className="quiz-actions">
+                        <button onClick={() => loadQuiz(quiz)} className="load-btn">Load</button>
+                        <button onClick={() => togglePublic(quiz.id, quiz.isPublic)} className="visibility-btn">
+                          {quiz.isPublic ? 'Make Private' : 'Make Public'}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div ref={publicQuizzesRef}>
+                <h3>Public Quizzes</h3>
+                <ul className="quiz-list">
+                  {publicQuizzes.map((quiz) => (
+                    <li key={quiz.id} className="quiz-item">
+                      <span>{quiz.title || 'Untitled Quiz'}</span>
+                      <button onClick={() => loadQuiz(quiz)} className="load-btn">Load</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-          )}
-          <button onClick={handleGenerateQuiz} className="generate-btn">
-            Generate Quiz
-          </button>
-        </div>
-      ) : (
-        <div className="quiz-display">
-          <h2>Quiz</h2>
-          {quiz.map((question, index) => renderQuestion(question, index))}
-          {!quizSubmitted && (
-            <button onClick={handleSubmitQuiz} className="submit-btn">
-              Submit Quiz
-            </button>
-          )}
-          {quizSubmitted && (
-            <div className="result">
-              <h3>Quiz Results</h3>
-              <p>Your score: {score.toFixed(2)}% ({itemScores.reduce((sum, item) => sum + item.score, 0)} / {itemScores.reduce((sum, item) => sum + item.total, 0)} points)</p>
-              <h4>Breakdown by Question:</h4>
-              <ul>
-                {itemScores.map((item, index) => (
-                  <li key={index}>
-                    Question {index + 1}: {item.score} / {item.total} points
-                  </li>
-                ))}
-              </ul>
-              <div className="button-group">
-                <button onClick={handleRetakeQuiz} className="retake-btn">
-                  Retake Quiz
-                </button>
-                <button onClick={handleCompareAnswers} className="compare-btn">
+          ) : (
+            <div className="quiz-display">
+              <h2>Quiz</h2>
+              {quiz.map((question, index) => renderQuestion(question, index))}
+              {!quizSubmitted && (
+                <div className="quiz-actions">
+                  <button onClick={handleSubmitQuiz} className="submit-btn">
+                    Submit Quiz
+                  </button>
+                  <button onClick={saveQuiz} className="save-btn">
+                    Save Quiz
+                  </button>
+                </div>
+              )}
+              {quizSubmitted && (
+                <div className="result">
+                  <h3>Quiz Results</h3>
+                  <p>Your score: {score.toFixed(2)}% ({itemScores.reduce((sum, item) => sum + item.score, 0)} / {itemScores.reduce((sum, item) => sum + item.total, 0)} points)</p>
+                  <h4>Breakdown by Question:</h4>
+                  <ul className="score-breakdown">
+                    {itemScores.map((item, index) => (
+                      <li key={index}>
+                        Question {index + 1}: {item.score} / {item.total} points
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="button-group">
+                    <button onClick={handleRetakeQuiz} className="retake-btn">
+                      Retake Quiz
+                    </button>
+                    <button onClick={handleCompareAnswers} className="compare-btn">
                   {showComparison ? 'Hide Answers' : 'Compare Answers'}
                 </button>
               </div>
@@ -282,7 +447,11 @@ const QuizGenerator = () => {
           <button onClick={() => setShowQuiz(false)} className="new-quiz-btn">
             Create New Quiz
           </button>
-        </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <button onClick={signIn}>Sign In with Google</button>
       )}
     </div>
   );
