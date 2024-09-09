@@ -206,53 +206,8 @@ const QuizGenerator = () => {
     setShowComparison(!showComparison);
   };
   
-  const renderQuestion = (question, index) => {
-    const userAnswer = userAnswers[index] || '';
-    const isCorrect = question.type === 'enumeration' 
-      ? question.answer.split(',').every(item => userAnswer.toLowerCase().includes(item.trim().toLowerCase()))
-      : userAnswer.toLowerCase().trim() === question.answer.toLowerCase().trim();
-
-    return (
-      <div key={index} className={`question ${quizSubmitted ? (isCorrect ? 'correct' : 'incorrect') : ''}`}>
-        <p className="question-text">{`${index + 1}. (${question.type}) ${question.question}`}</p>
-        {question.type === 'multiple-choice' ? (
-          question.options.map((option, optionIndex) => (
-            <div key={optionIndex} className="option">
-              <label>
-                <input
-                  type="radio"
-                  name={`question-${index}`}
-                  value={option[0]}
-                  onChange={() => handleAnswerChange(index, option[0])}
-                  checked={userAnswers[index] === option[0]}
-                  disabled={quizSubmitted}
-                />
-                <span>{option}</span>
-              </label>
-            </div>
-          ))
-        ) : (
-          <input
-            type="text"
-            value={userAnswers[index] || ''}
-            onChange={(e) => handleAnswerChange(index, e.target.value)}
-            placeholder="Enter your answer"
-            className="answer-input"
-            disabled={quizSubmitted}
-          />
-        )}
-        {quizSubmitted && showComparison && (
-          <div className="comparison">
-            <p><strong>Your answer:</strong> {userAnswer}</p>
-            <p><strong>Correct answer:</strong> {question.answer}</p>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const parseQuiz = (text, answers) => {
-    const sections = text.split(/\n(?=(?:Enumeration|Identification|Multiple Choice))/);
+    const sections = text.split(/\n(?=(?:Enumeration|Identification|True or False|Multiple Choice))/);
     const answerLines = answers.split('\n');
     const questions = [];
     let answerIndex = 0;
@@ -262,11 +217,18 @@ const QuizGenerator = () => {
       const sectionType = lines[0].trim();
       lines.slice(1).forEach((line) => {
         if (line.trim()) {
-          if (sectionType === 'Enumeration' || sectionType === 'Identification') {
+          if (sectionType === 'Enumeration') {
             questions.push({
-              type: sectionType.toLowerCase(),
+              type: 'enumeration',
               question: line.substring(line.indexOf('.') + 1).trim(),
               answer: answerLines[answerIndex++]?.trim() || '',
+            });
+          } else if (sectionType === 'Identification' || sectionType === 'True or False') {
+            questions.push({
+              type: 'identification',
+              question: line.substring(line.indexOf('.') + 1).trim(),
+              answer: answerLines[answerIndex++]?.trim() || '',
+              isTrueOrFalse: sectionType === 'True or False'
             });
           } else if (sectionType === 'Multiple Choice') {
             if (line.match(/^\d+\./)) {
@@ -287,8 +249,84 @@ const QuizGenerator = () => {
     return questions;
   };
 
-  const scrollToSection = (ref) => {
-    ref.current?.scrollIntoView({ behavior: 'smooth' });
+  const renderQuestion = (question, index) => {
+    const userAnswer = userAnswers[index] || '';
+    let isCorrect;
+
+    if (question.type === 'enumeration') {
+      isCorrect = question.answer.split(',').every(item => userAnswer.toLowerCase().includes(item.trim().toLowerCase()));
+    } else if (question.type === 'identification') {
+      if (question.isTrueOrFalse) {
+        isCorrect = userAnswer.toLowerCase().trim() === question.answer.toLowerCase().trim();
+      } else {
+        isCorrect = userAnswer.toLowerCase().trim() === question.answer.toLowerCase().trim();
+      }
+    } else {
+      isCorrect = userAnswer.toLowerCase().trim() === question.answer.toLowerCase().trim();
+    }
+
+    return (
+      <div key={index} className={`question ${quizSubmitted ? (isCorrect ? 'correct' : 'incorrect') : ''}`}>
+        <p className="question-text">{`${index + 1}. ${question.isTrueOrFalse ? '(True or False) ' : ''}${question.question}`}</p>
+        {question.type === 'multiple-choice' ? (
+          question.options.map((option, optionIndex) => (
+            <div key={optionIndex} className="option">
+              <label>
+                <input
+                  type="radio"
+                  name={`question-${index}`}
+                  value={option[0]}
+                  onChange={() => handleAnswerChange(index, option[0])}
+                  checked={userAnswers[index] === option[0]}
+                  disabled={quizSubmitted}
+                />
+                <span>{option}</span>
+              </label>
+            </div>
+          ))
+        ) : question.isTrueOrFalse ? (
+          <div className="true-false-options">
+            <label>
+              <input
+                type="radio"
+                name={`question-${index}`}
+                value="true"
+                onChange={() => handleAnswerChange(index, 'true')}
+                checked={userAnswers[index] === 'true'}
+                disabled={quizSubmitted}
+              />
+              <span>True</span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name={`question-${index}`}
+                value="false"
+                onChange={() => handleAnswerChange(index, 'false')}
+                checked={userAnswers[index] === 'false'}
+                disabled={quizSubmitted}
+              />
+              <span>False</span>
+            </label>
+          </div>
+        ) : (
+          <input
+            type="text"
+            value={userAnswers[index] || ''}
+            onChange={(e) => handleAnswerChange(index, e.target.value)}
+            placeholder="Enter your answer"
+            className="answer-input"
+            disabled={quizSubmitted}
+          />
+        )}
+        {quizSubmitted && showComparison && (
+          <div className="comparison">
+            <p><strong>Your answer:</strong> {userAnswer}</p>
+            <p><strong>Correct answer:</strong> {question.answer}</p>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const instructionsText = `
@@ -308,7 +346,14 @@ const QuizGenerator = () => {
        Identification
        1. What is the capital of France?
 
-    3. Multiple Choice:
+    3. True or False:
+       Write "True or False" at the beginning of the section.
+       Each statement should be on a new line, starting with a number.
+       Example:
+       True or False
+       1. The Earth is flat.
+
+    4. Multiple Choice:
        Write "Multiple Choice" at the beginning of the section.
        Each question should be on a new line, starting with a number.
        Options should be on separate lines, starting with A), B), C), or D).
@@ -324,8 +369,12 @@ const QuizGenerator = () => {
     Write answers in the order of questions, one per line.
     For enumeration, separate items with commas.
     For multiple choice, just write the correct letter.
+    For True or False, write "true" or "false".
   `;
 
+  const scrollToSection = (ref) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   return (
     <div className="quiz-generator">
@@ -456,7 +505,6 @@ const QuizGenerator = () => {
     </div>
   );
 };
-
 
 
 
