@@ -33,6 +33,7 @@ const QuizGenerator = () => {
   const [publicQuizzes, setPublicQuizzes] = useState([]);
   const [isPublic, setIsPublic] = useState(false);
   const [quizTitle, setQuizTitle] = useState('');
+  const [shuffledQuiz, setShuffledQuiz] = useState([]);
   const [showInstructions, setShowInstructions] = useState(false);
 
   const userQuizzesRef = useRef(null);
@@ -56,6 +57,23 @@ const QuizGenerator = () => {
     } catch (error) {
       console.error("Error signing in with Google", error);
     }
+  };
+
+  const shuffleQuestions = () => {
+    const shuffled = [...quiz].sort(() => Math.random() - 0.5);
+    setShuffledQuiz(shuffled);
+  };
+
+  const handleGenerateQuiz = () => {
+    const parsedQuiz = parseQuiz(quizText, answerText);
+    setQuiz(parsedQuiz);
+    setShuffledQuiz(parsedQuiz);
+    setShowQuiz(true);
+    setUserAnswers({});
+    setScore(null);
+    setItemScores([]);
+    setQuizSubmitted(false);
+    setShowComparison(false);
   };
 
   const signOutUser = async () => {
@@ -125,17 +143,6 @@ const QuizGenerator = () => {
     } catch (error) {
       console.error("Error updating quiz visibility: ", error);
     }
-  };
-
-  const handleGenerateQuiz = () => {
-    const parsedQuiz = parseQuiz(quizText, answerText);
-    setQuiz(parsedQuiz);
-    setShowQuiz(true);
-    setUserAnswers({});
-    setScore(null);
-    setItemScores([]);
-    setQuizSubmitted(false);
-    setShowComparison(false);
   };
 
   const handleAnswerChange = (questionIndex, answer) => {
@@ -375,7 +382,6 @@ const QuizGenerator = () => {
   const scrollToSection = (ref) => {
     ref.current?.scrollIntoView({ behavior: 'smooth' });
   };
-
   return (
     <div className="quiz-generator">
       <h1>GOODLUCK V</h1>
@@ -389,7 +395,7 @@ const QuizGenerator = () => {
             <button onClick={() => scrollToSection(userQuizzesRef)} className="nav-btn">My Quizzes</button>
             <button onClick={() => scrollToSection(publicQuizzesRef)} className="nav-btn">Public Quizzes</button>
           </div>
-            {!showQuiz ? (
+          {!showQuiz ? (
             <div className="quiz-input">
               <button onClick={toggleInstructions} className="instructions-btn">
                 {showInstructions ? 'Hide Instructions' : 'Show Instructions'}
@@ -460,7 +466,12 @@ const QuizGenerator = () => {
           ) : (
             <div className="quiz-display">
               <h2>Quiz</h2>
-              {quiz.map((question, index) => renderQuestion(question, index))}
+              {!quizSubmitted && (
+                <button onClick={shuffleQuestions} className="shuffle-btn">
+                  Shuffle Questions
+                </button>
+              )}
+              {shuffledQuiz.map((question, index) => renderQuestion(question, index))}
               {!quizSubmitted && (
                 <div className="quiz-actions">
                   <button onClick={handleSubmitQuiz} className="submit-btn">
@@ -488,14 +499,14 @@ const QuizGenerator = () => {
                       Retake Quiz
                     </button>
                     <button onClick={handleCompareAnswers} className="compare-btn">
-                  {showComparison ? 'Hide Answers' : 'Compare Answers'}
-                </button>
-              </div>
-            </div>
-          )}
-          <button onClick={() => setShowQuiz(false)} className="new-quiz-btn">
-            Create New Quiz
-          </button>
+                      {showComparison ? 'Hide Answers' : 'Compare Answers'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              <button onClick={() => setShowQuiz(false)} className="new-quiz-btn">
+                Create New Quiz
+              </button>
             </div>
           )}
         </>
@@ -505,7 +516,6 @@ const QuizGenerator = () => {
     </div>
   );
 };
-
 
 
 export default QuizGenerator;
