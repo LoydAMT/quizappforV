@@ -35,6 +35,14 @@ const QuizGenerator = () => {
   const [quizTitle, setQuizTitle] = useState('');
   const [shuffledQuiz, setShuffledQuiz] = useState([]);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [quizMode, setQuizMode] = useState('normal');
+  const [currentFlashCardIndex, setCurrentFlashCardIndex] = useState(0);
+  const [flashCardQueue, setFlashCardQueue] = useState([]);
+  const [flashCardAnswered, setFlashCardAnswered] = useState(false);
+  const [flashCardCorrect, setFlashCardCorrect] = useState(false);
+  const [completedFlashCards, setCompletedFlashCards] = useState([]);
+  const [showFlashCardModal, setShowFlashCardModal] = useState(false);
+
 
   const userQuizzesRef = useRef(null);
   const publicQuizzesRef = useRef(null);
@@ -62,18 +70,6 @@ const QuizGenerator = () => {
   const shuffleQuestions = () => {
     const shuffled = [...quiz].sort(() => Math.random() - 0.5);
     setShuffledQuiz(shuffled);
-  };
-
-  const handleGenerateQuiz = () => {
-    const parsedQuiz = parseQuiz(quizText, answerText);
-    setQuiz(parsedQuiz);
-    setShuffledQuiz(parsedQuiz);
-    setShowQuiz(true);
-    setUserAnswers({});
-    setScore(null);
-    setItemScores([]);
-    setQuizSubmitted(false);
-    setShowComparison(false);
   };
 
   const signOutUser = async () => {
@@ -272,6 +268,8 @@ const QuizGenerator = () => {
       isCorrect = userAnswer.toLowerCase().trim() === question.answer.toLowerCase().trim();
     }
 
+
+
     return (
       <div key={index} className={`question ${quizSubmitted ? (isCorrect ? 'correct' : 'incorrect') : ''}`}>
         <p className="question-text">{`${index + 1}. ${question.isTrueOrFalse ? '(True or False) ' : ''}${question.question}`}</p>
@@ -382,6 +380,139 @@ const QuizGenerator = () => {
   const scrollToSection = (ref) => {
     ref.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+
+  const initializeFlashCards = () => {
+    const initialQueue = shuffledQuiz.map((question, index) => ({
+      ...question,
+      originalIndex: index,
+      correctCount: 0
+    }));
+    setFlashCardQueue(initialQueue);
+    setCurrentFlashCardIndex(0);
+    setCompletedFlashCards([]);
+  };
+
+  const handleFlashCardAnswer = (isCorrect) => {
+    setFlashCardAnswered(true);
+    setFlashCardCorrect(isCorrect);
+
+    const currentCard = flashCardQueue[currentFlashCardIndex];
+    let updatedCard = { ...currentCard };
+
+    if (isCorrect) {
+      updatedCard.correctCount += 1;
+    } else {
+      updatedCard.correctCount = 0;
+    }
+
+    const updatedQueue = [...flashCardQueue];
+    updatedQueue[currentFlashCardIndex] = updatedCard;
+    setFlashCardQueue(updatedQueue);
+  };
+  const moveToNextFlashCard = () => {
+    setFlashCardAnswered(false);
+    setFlashCardCorrect(false);
+
+    const currentCard = flashCardQueue[currentFlashCardIndex];
+
+    if (currentCard.correctCount >= 2) {
+      // Move the card to completed cards
+      setCompletedFlashCards([...completedFlashCards, currentCard]);
+      const newQueue = flashCardQueue.filter((_, index) => index !== currentFlashCardIndex);
+      setFlashCardQueue(newQueue);
+    } else {
+      // Move the current card to a random position in the queue
+      const newQueue = flashCardQueue.filter((_, index) => index !== currentFlashCardIndex);
+      const insertPosition = Math.floor(Math.random() * (newQueue.length + 1));
+      newQueue.splice(insertPosition, 0, currentCard);
+      setFlashCardQueue(newQueue);
+    }
+
+    if (flashCardQueue.length <= 1) {
+      // Quiz completed
+      setShowQuiz(false);
+      alert("Flash Card Quiz completed!");
+    } else {
+      setCurrentFlashCardIndex(0);
+    }
+  };
+  const renderFlashCard = () => {
+    if (flashCardQueue.length === 0) {
+      return (
+        <div className="flash-card-modal-content">
+          <p>Flash Card Quiz completed! Great job!</p>
+          <button onClick={() => setShowFlashCardModal(false)} className="close-modal-btn">Close</button>
+        </div>
+      );
+    }
+  
+    const currentCard = flashCardQueue[currentFlashCardIndex];
+  
+    return (
+      <div className="flash-card-modal-content">
+        <h3>Question {currentCard.originalIndex + 1}</h3>
+        <p>{currentCard.question}</p>
+        {flashCardAnswered ? (
+          <div className="flash-card-result">
+            <p className={flashCardCorrect ? "correct" : "incorrect"}>
+              {flashCardCorrect ? "Correct!" : "Incorrect"}
+            </p>
+            <p>Correct answer: {currentCard.answer}</p>
+            <button onClick={moveToNextFlashCard}>Next Card</button>
+          </div>
+        ) : (
+          <div className="flash-card-actions vertical">
+            {currentCard.type === 'multiple-choice' ? (
+              currentCard.options.map((option, optionIndex) => (
+                <button
+                  key={optionIndex}
+                  onClick={() => handleFlashCardAnswer(option[0].toLowerCase() === currentCard.answer.toLowerCase())}
+                >
+                  {option}
+                </button>
+              ))
+            ) : currentCard.isTrueOrFalse ? (
+              <>
+                <button onClick={() => handleFlashCardAnswer('true' === currentCard.answer.toLowerCase())}>True</button>
+                <button onClick={() => handleFlashCardAnswer('false' === currentCard.answer.toLowerCase())}>False</button>
+              </>
+            ) : (
+              <input
+                type="text"
+                placeholder="Enter your answer"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleFlashCardAnswer(e.target.value.toLowerCase().trim() === currentCard.answer.toLowerCase().trim());
+                  }
+                }}
+              />
+            )}
+          </div>
+        )}
+        <div className="flash-card-progress">
+          <p>Cards remaining: {flashCardQueue.length}</p>
+          <p>Cards completed: {completedFlashCards.length}</p>
+        </div>
+        <button onClick={() => setShowFlashCardModal(false)} className="close-modal-btn">End Quiz</button>
+      </div>
+    );
+  };
+  const handleGenerateQuiz = () => {
+    const parsedQuiz = parseQuiz(quizText, answerText);
+    setQuiz(parsedQuiz);
+    setShuffledQuiz(parsedQuiz);
+    setShowQuiz(true);
+    setUserAnswers({});
+    setScore(null);
+    setItemScores([]);
+    setQuizSubmitted(false);
+    setShowComparison(false);
+    if (quizMode === 'flashcard') {
+      initializeFlashCards();
+      setShowFlashCardModal(true);
+    }
+  };
   return (
     <div className="quiz-generator">
       <h1>GOODLUCK V</h1>
@@ -432,6 +563,13 @@ const QuizGenerator = () => {
                   />
                   Make this quiz public
                 </label>
+                <label className="quiz-mode-select">
+                  Quiz Mode:
+                  <select value={quizMode} onChange={(e) => setQuizMode(e.target.value)}>
+                    <option value="normal">Normal</option>
+                    <option value="flashcard">Flash Card</option>
+                  </select>
+                </label>
                 <button onClick={saveQuiz} className="save-btn">Save Quiz</button>
                 <button onClick={handleGenerateQuiz} className="generate-btn">Generate Quiz</button>
               </div>
@@ -466,47 +604,60 @@ const QuizGenerator = () => {
           ) : (
             <div className="quiz-display">
               <h2>Quiz</h2>
-              {!quizSubmitted && (
-                <button onClick={shuffleQuestions} className="shuffle-btn">
-                  Shuffle Questions
+              {quizMode === 'normal' ? (
+                <>
+                  {!quizSubmitted && (
+                    <button onClick={shuffleQuestions} className="shuffle-btn">
+                      Shuffle Questions
+                    </button>
+                  )}
+                  {shuffledQuiz.map((question, index) => renderQuestion(question, index))}
+                  {!quizSubmitted && (
+                    <div className="quiz-actions">
+                      <button onClick={handleSubmitQuiz} className="submit-btn">
+                        Submit Quiz
+                      </button>
+                      <button onClick={saveQuiz} className="save-btn">
+                        Save Quiz
+                      </button>
+                    </div>
+                  )}
+                  {quizSubmitted && (
+                    <div className="result">
+                      <h3>Quiz Results</h3>
+                      <p>Your score: {score.toFixed(2)}% ({itemScores.reduce((sum, item) => sum + item.score, 0)} / {itemScores.reduce((sum, item) => sum + item.total, 0)} points)</p>
+                      <h4>Breakdown by Question:</h4>
+                      <ul className="score-breakdown">
+                        {itemScores.map((item, index) => (
+                          <li key={index}>
+                            Question {index + 1}: {item.score} / {item.total} points
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="button-group">
+                        <button onClick={handleRetakeQuiz} className="retake-btn">
+                          Retake Quiz
+                        </button>
+                        <button onClick={handleCompareAnswers} className="compare-btn">
+                          {showComparison ? 'Hide Answers' : 'Compare Answers'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <button onClick={() => setShowFlashCardModal(true)} className="start-flashcard-btn">
+                  Start Flash Cards
                 </button>
-              )}
-              {shuffledQuiz.map((question, index) => renderQuestion(question, index))}
-              {!quizSubmitted && (
-                <div className="quiz-actions">
-                  <button onClick={handleSubmitQuiz} className="submit-btn">
-                    Submit Quiz
-                  </button>
-                  <button onClick={saveQuiz} className="save-btn">
-                    Save Quiz
-                  </button>
-                </div>
-              )}
-              {quizSubmitted && (
-                <div className="result">
-                  <h3>Quiz Results</h3>
-                  <p>Your score: {score.toFixed(2)}% ({itemScores.reduce((sum, item) => sum + item.score, 0)} / {itemScores.reduce((sum, item) => sum + item.total, 0)} points)</p>
-                  <h4>Breakdown by Question:</h4>
-                  <ul className="score-breakdown">
-                    {itemScores.map((item, index) => (
-                      <li key={index}>
-                        Question {index + 1}: {item.score} / {item.total} points
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="button-group">
-                    <button onClick={handleRetakeQuiz} className="retake-btn">
-                      Retake Quiz
-                    </button>
-                    <button onClick={handleCompareAnswers} className="compare-btn">
-                      {showComparison ? 'Hide Answers' : 'Compare Answers'}
-                    </button>
-                  </div>
-                </div>
               )}
               <button onClick={() => setShowQuiz(false)} className="new-quiz-btn">
                 Create New Quiz
               </button>
+            </div>
+          )}
+          {showFlashCardModal && (
+            <div className="flash-card-modal">
+              {renderFlashCard()}
             </div>
           )}
         </>
@@ -516,6 +667,4 @@ const QuizGenerator = () => {
     </div>
   );
 };
-
-
 export default QuizGenerator;
