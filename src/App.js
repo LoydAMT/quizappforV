@@ -385,28 +385,29 @@ const QuizGenerator = () => {
       ...question,
       originalIndex: index,
       correctCount: 0,
-      nextAppearance: 0,
+      nextAppearance: index, // Start with sequential order
       isFinished: false
     }));
     setFlashCardQueue(initialQueue);
     setCurrentFlashCardIndex(0);
     setCompletedFlashCards([]);
   };
+
   const handleFlashCardAnswer = (isCorrect) => {
     setFlashCardAnswered(true);
     setFlashCardCorrect(isCorrect);
-  
+
     const currentCard = flashCardQueue[currentFlashCardIndex];
     let updatedCard = { ...currentCard };
-  
+
     if (isCorrect) {
       updatedCard.correctCount += 1;
-      updatedCard.nextAppearance = currentFlashCardIndex + Math.floor(Math.random() * 11) + 10; // 10-20 questions later
+      updatedCard.nextAppearance = flashCardQueue.length + Math.floor(Math.random() * 11) + 10; // 10-20 cards later
     } else {
       updatedCard.correctCount = 0;
-      updatedCard.nextAppearance = currentFlashCardIndex + Math.floor(Math.random() * 4) + 5; // 5-8 questions later
+      updatedCard.nextAppearance = flashCardQueue.length + Math.floor(Math.random() * 4) + 5; // 5-8 cards later
     }
-  
+
     const updatedQueue = [...flashCardQueue];
     updatedQueue[currentFlashCardIndex] = updatedCard;
     setFlashCardQueue(updatedQueue);
@@ -416,18 +417,18 @@ const QuizGenerator = () => {
     setFlashCardCorrect(false);
   
     const currentCard = flashCardQueue[currentFlashCardIndex];
+    let newQueue = [...flashCardQueue];
   
     if (currentCard.correctCount >= 2) {
       // Mark the card as finished and move it to completed cards
       currentCard.isFinished = true;
       setCompletedFlashCards([...completedFlashCards, currentCard]);
-      const newQueue = flashCardQueue.filter((_, index) => index !== currentFlashCardIndex);
-      setFlashCardQueue(newQueue);
+      newQueue = newQueue.filter((_, index) => index !== currentFlashCardIndex);
     } else {
       // Remove the current card from its current position
-      const newQueue = flashCardQueue.filter((_, index) => index !== currentFlashCardIndex);
+      newQueue.splice(currentFlashCardIndex, 1);
       
-      // Find the correct position to insert the card based on its nextAppearance value
+      // Insert the card at its next appearance position
       const insertPosition = newQueue.findIndex(card => card.nextAppearance > currentCard.nextAppearance);
       
       if (insertPosition === -1) {
@@ -436,18 +437,18 @@ const QuizGenerator = () => {
       } else {
         newQueue.splice(insertPosition, 0, currentCard);
       }
-      
-      setFlashCardQueue(newQueue);
     }
   
-    if (flashCardQueue.length <= 1) {
+    setFlashCardQueue(newQueue);
+  
+    if (newQueue.length === 0) {
       // Quiz completed
       setShowQuiz(false);
+      setShowFlashCardModal(false);
       alert("Flash Card Quiz completed!");
     } else {
-      // Move to the next card that's due to appear
-      const nextCardIndex = flashCardQueue.findIndex((card, index) => index !== currentFlashCardIndex && !card.isFinished);
-      setCurrentFlashCardIndex(nextCardIndex !== -1 ? nextCardIndex : 0);
+      // Move to the next card
+      setCurrentFlashCardIndex(0); // Always move to the first card in the queue
     }
   };
   
@@ -460,9 +461,9 @@ const QuizGenerator = () => {
         </div>
       );
     }
-  
+
     const currentCard = flashCardQueue[currentFlashCardIndex];
-  
+
     return (
       <div className="flash-card-modal-content">
         <h3>Question {currentCard.originalIndex + 1}</h3>
@@ -512,6 +513,7 @@ const QuizGenerator = () => {
       </div>
     );
   };
+
   const handleGenerateQuiz = () => {
     const parsedQuiz = parseQuiz(quizText, answerText);
     setQuiz(parsedQuiz);
