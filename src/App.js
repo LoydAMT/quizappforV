@@ -419,24 +419,34 @@ const QuizGenerator = () => {
     const currentCard = flashCardQueue[currentFlashCardIndex];
     let newQueue = [...flashCardQueue];
   
-    if (currentCard.correctCount >= 2) {
-      // Mark the card as finished and move it to completed cards
-      currentCard.isFinished = true;
-      setCompletedFlashCards([...completedFlashCards, currentCard]);
-      newQueue = newQueue.filter((_, index) => index !== currentFlashCardIndex);
-    } else {
-      // Remove the current card from its current position
-      newQueue.splice(currentFlashCardIndex, 1);
-      
-      // Insert the card at its next appearance position
-      const insertPosition = newQueue.findIndex(card => card.nextAppearance > currentCard.nextAppearance);
-      
-      if (insertPosition === -1) {
-        // If no suitable position found, add to the end
-        newQueue.push(currentCard);
+    // Handling correct and incorrect answer reinsertion
+    if (flashCardCorrect) {
+      if (currentCard.correctCount >= 2) {
+        // Mark the card as finished and move it to completed cards
+        currentCard.isFinished = true;
+        setCompletedFlashCards([...completedFlashCards, currentCard]);
+        newQueue = newQueue.filter((_, index) => index !== currentFlashCardIndex);
       } else {
+        // Correct answer but not finished, increase the count
+        currentCard.correctCount += 1;
+        
+        // Remove the current card from its current position
+        newQueue.splice(currentFlashCardIndex, 1);
+  
+        // Reshow the card after 20-25 cards for correct answers
+        const insertPosition = Math.min(newQueue.length, currentFlashCardIndex + 20 + Math.floor(Math.random() * 6));
         newQueue.splice(insertPosition, 0, currentCard);
       }
+    } else {
+      // For incorrect answers, reset the correctCount if needed
+      currentCard.correctCount = Math.max(currentCard.correctCount - 1, 0);
+  
+      // Remove the current card from its current position
+      newQueue.splice(currentFlashCardIndex, 1);
+  
+      // Reshow the card after 5-10 cards for incorrect answers
+      const insertPosition = Math.min(newQueue.length, currentFlashCardIndex + 5 + Math.floor(Math.random() * 6));
+      newQueue.splice(insertPosition, 0, currentCard);
     }
   
     setFlashCardQueue(newQueue);
